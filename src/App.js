@@ -1,13 +1,15 @@
 import axios from 'axios';
 import { fromUint8Array, toUint8Array } from 'js-base64';
+import debounce from 'lodash.debounce';
 import * as monaco from 'monaco-editor';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
 import { MonacoBinding } from 'y-monaco';
 import * as Y from 'yjs';
 import './App.css';
 
 
+let updates = [];
 
 export default function App() {
   const node = useRef(undefined);
@@ -16,6 +18,16 @@ export default function App() {
   const [contentVector, setContentVector] = useState(undefined);
   const [update, setUpdate] = useState(undefined);
   const ydocument = new Y.Doc();
+
+  const debouncedUpdate = useCallback(debounce(() => {
+    const toPush = updates;
+    updates = [];
+    axios.post('http://localhost:8000/docupdate2', { updates: toPush, origin: ydocument.clientID }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).then(() => { }).catch((err) => { });
+  }, 500), []);
 
   useEffect(() => {
     if (contentLoaded) return;
@@ -47,11 +59,13 @@ export default function App() {
     ydocument.on('update', (update) => {
       console.log(update);
       const base64encoded = fromUint8Array(Y.encodeStateAsUpdate(ydocument, content));
-      axios.post('http://localhost:8000/docupdate', { update: base64encoded, origin: ydocument.clientID }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }).then(() => { }).catch((err) => { });
+      updates.push(base64encoded);
+      debouncedUpdate();
+      // axios.post('http://localhost:8000/docupdate', { update: base64encoded, origin: ydocument.clientID }, {
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   }
+      // }).then(() => { }).catch((err) => { });
     });
     const model = monaco.editor.createModel('', 'text');
     const editor = monaco.editor.create(node.current, {});
