@@ -15,8 +15,6 @@ let updates = [];
 export default function App() {
   const node = useRef(undefined);
   const [contentLoaded, setContentLoaded] = useState(false);
-  const [content, setContent] = useState('');
-  const [contentVector, setContentVector] = useState(undefined);
   const [update, setUpdate] = useState(undefined);
   const ydocument = new Y.Doc();
   const awareness = new awarenessProtocol.Awareness(ydocument);
@@ -38,16 +36,13 @@ export default function App() {
   useEffect(() => {
     if (contentLoaded) return;
     axios.get('http://localhost:8000/doc').then((resp) => {
-      setContent(resp.data.state);
       setUpdate(toUint8Array(resp.data.update));
-      setContentVector(toUint8Array(resp.data.vector));
       setContentLoaded(true);
     })
   }, [contentLoaded]);
 
   useEffect(() => {
     if (!contentLoaded) return;
-    console.log('here', contentVector);
     try {
       Y.applyUpdate(ydocument, update);
     } catch (err) {
@@ -105,7 +100,7 @@ export default function App() {
       //   }
       // }).then(() => { }).catch((err) => { });
     });
-  },[contentVector,ydocument]);
+  },[ydocument]);
 
   return <div ref={node} style={{ width: '100vw', height: '100vh' }} />
 }
